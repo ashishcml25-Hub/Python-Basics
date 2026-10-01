@@ -1,0 +1,101 @@
+birthdays = []
+
+while True:
+    print("\n--- Birthday Reminder ---")
+    print("1. Add Birthday")
+    print("2. Search Birthday")
+    print("3. Update Birthday")
+    print("4. Delete Birthday")
+    print("5. View All Birthdays")
+    print("6. Exit")
+
+    choice = input("Enter choice: ")
+
+    # 1. Add Birthday
+    if choice == "1":
+        name = input("Enter name: ")
+        dob = input("Enter birthday (DD-MM-YYYY): ")
+        relation = input("Enter relation: ")
+        contact = input("Enter contact: ")
+
+        person = {
+            "name": name,
+            "dob": dob,
+            "relation": relation,
+            "contact": contact
+        }
+
+        birthdays.append(person)
+
+        print("Birthday added successfully!")
+
+    # 2. Search Birthday
+    elif choice == "2":
+        name = input("Enter name to search: ")
+
+        for person in birthdays:
+            if person["name"].lower() == name.lower():
+                print("\n--- Birthday Details ---")
+                print("Name:", person["name"])
+                print("Birthday:", person["dob"])
+                print("Relation:", person["relation"])
+                print("Contact:", person["contact"])
+                break
+        else:
+            print("Birthday not found!")
+
+    # 3. Update Birthday
+    elif choice == "3":
+        name = input("Enter name to update: ")
+
+        for person in birthdays:
+            if person["name"].lower() == name.lower():
+
+                print("\nEnter new details:")
+                person["dob"] = input("Enter new birthday (DD-MM-YYYY): ")
+                person["relation"] = input("Enter new relation: ")
+                person["contact"] = input("Enter new contact: ")
+
+                print("Birthday updated successfully!")
+                break
+        else:
+            print("Birthday not found!")
+
+    # 4. Delete Birthday
+    elif choice == "4":
+        name = input("Enter name to delete: ")
+
+        for person in birthdays:
+            if person["name"].lower() == name.lower():
+                birthdays.remove(person)
+
+                print("Birthday deleted successfully!")
+                break
+        else:
+            print("Birthday not found!")
+
+    # 5. View All Birthdays
+    elif choice == "5":
+        if len(birthdays) == 0:
+            print("No birthdays saved.")
+
+        else:
+            print("\n--- All Birthdays ---")
+
+            for person in birthdays:
+                print(
+                    person["name"],
+                    "-",
+                    person["dob"],
+                    "-",
+                    person["relation"]
+                )
+
+    # 6. Exit
+    elif choice == "6":
+        print("Thank you!")
+        break
+
+    # Invalid Choice
+    else:
+        print("Invalid choice! Please enter a valid option.")
