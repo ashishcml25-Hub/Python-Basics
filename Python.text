@@ -1,0 +1,166 @@
+from flask import Flask, render_template, request, redirect, url_for, flash
+import sqlite3
+from datetime import date, datetime
+
+app = Flask(__name__)
+app.secret_key = "change-this-secret-key"
+DB_PATH = "birthdays.db"
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS birthdays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                birthday TEXT NOT NULL,
+                relationship TEXT DEFAULT '',
+                notes TEXT DEFAULT ''
+            )
+        """)
+
+
+def birthday_info(row):
+    today = date.today()
+    birthday = datetime.strptime(
+        row["birthday"], "%Y-%m-%d"
+    ).date()
+
+    next_birthday = birthday.replace(year=today.year)
+
+    if next_birthday < today:
+        next_birthday = next_birthday.replace(
+            year=today.year + 1
+        )
+
+    days_left = (next_birthday - today).days
+
+    return {
+        **dict(row),
+        "days_left": days_left,
+        "next_date": next_birthday.strftime("%d %b"),
+        "is_today": days_left == 0,
+        "is_soon": days_left <= 7,
+    }
+
+
+@app.route("/")
+def index():
+    search = request.args.get("q", "").strip()
+
+    with get_db() as conn:
+        if search:
+            rows = conn.execute(
+                """SELECT * FROM birthdays
+                   WHERE name LIKE ? OR relationship LIKE ?""",
+                (f"%{search}%", f"%{search}%")
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM birthdays"
+            ).fetchall()
+
+    people = [
+        birthday_info(row) for row in rows
+    ]
+
+    people.sort(
+        key=lambda p: (p["days_left"], p["name"].lower())
+    )
+
+    today_count = sum(
+        person["is_today"] for person in people
+    )
+
+    upcoming = [
+        person for person in people
+        if person["days_left"] <= 30
+    ][:5]
+
+    return render_template(
+        "index.html",
+        people=people,
+        upcoming=upcoming,
+        total=len(people),
+        today_count=today_count,
+        search=search
+    )
+
+
+@app.route("/add", methods=["POST"])
+def add_birthday():
+    name = request.form.get("name", "").strip()
+    birthday = request.form.get("birthday", "").strip()
+    relationship = request.form.get("relationship", "").strip()
+    notes = request.form.get("notes", "").strip()
+
+    if not name or not birthday:
+        flash("Please enter a name and birthday.", "error")
+        return redirect(url_for("index"))
+
+    try:
+        datetime.strptime(birthday, "%Y-%m-%d")
+    except ValueError:
+        flash("Please choose a valid birthday date.", "error")
+        return redirect(url_for("index"))
+
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO birthdays
+               (name, birthday, relationship, notes)
+               VALUES (?, ?, ?, ?)""",
+            (name, birthday, relationship, notes)
+        )
+
+    flash(f"Birthday saved for {name}!", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/edit/<int:person_id>", methods=["POST"])
+def edit_birthday(person_id):
+    name = request.form.get("name", "").strip()
+    birthday = request.form.get("birthday", "").strip()
+    relationship = request.form.get("relationship", "").strip()
+    notes = request.form.get("notes", "").strip()
+
+    try:
+        datetime.strptime(birthday, "%Y-%m-%d")
+        if not name:
+            raise ValueError
+    except ValueError:
+        flash("Please enter a valid name and birthday.", "error")
+        return redirect(url_for("index"))
+
+    with get_db() as conn:
+        conn.execute(
+            """UPDATE birthdays
+               SET name=?, birthday=?, relationship=?, notes=?
+               WHERE id=?""",
+            (name, birthday, relationship, notes, person_id)
+        )
+
+    flash("Birthday updated!", "success")
+    return redirect(url_for("index"))
+
+
+@app.route("/delete/<int:person_id>", methods=["POST"])
+def delete_birthday(person_id):
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM birthdays WHERE id=?",
+            (person_id,)
+        )
+
+    flash("Birthday removed.", "success")
+    return redirect(url_for("index"))
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run(debug=True)
